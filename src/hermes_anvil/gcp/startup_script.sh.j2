@@ -1,0 +1,144 @@
+#!/bin/bash
+# Hermes Anvil VM startup script -- rendered by gcp/compute.py and passed
+# as instance metadata. Runs once at first boot as root.
+set -euo pipefail
+
+PROJECT="{{ project }}"
+SECRET_NAME="{{ secret_name }}"
+AGENT_NAME="{{ agent_name }}"
+
+exec > /var/log/hermes-anvil-startup.log 2>&1
+echo "=== Hermes Anvil startup: $(date -u) ==="
+
+# --- 1. Dedicated non-root user for Hermes ---
+if ! id hermes &>/dev/null; then
+  useradd -m -s /bin/bash hermes
+fi
+
+# --- 2. Fetch the attendee's model-provider API key from Secret Manager ---
+# Only the secret NAME lives in this script (see docs/security.md,
+# measure 3) -- the value is fetched here, at boot, via the VM's own
+# attached least-privilege service account (metadata-server-based
+# credentials, no key file involved), and is never written to disk in
+# cleartext anywhere else.
+API_KEY=$(gcloud secrets versions access latest --secret="${SECRET_NAME}" --project="${PROJECT}")
+
+# --- 3. Install Hermes Agent ---
+# Installer sets up Python 3.11+/Node/uv/ripgrep/ffmpeg itself.
+sudo -u hermes bash -c 'curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash'
+
+# --- 4. Write Hermes config ---
+sudo -u hermes mkdir -p /home/hermes/.hermes
+cat <<EOF > /home/hermes/.hermes/config.yaml
+agent_name: "${AGENT_NAME}"
+model_provider:
+  api_key: "${API_KEY}"
+
+# --- Optional: Google Workspace MCP (Gmail / Calendar / Drive / Chat) ---
+# Uncomment to give your agent access to your own Google Workspace
+# services via Google's official Workspace MCP server (preview). See
+# https://docs.cloud.google.com/mcp/supported-products for the current
+# server URL and auth setup -- this is not infra control (unlike the
+# self-management wiring below), so it's safe to enable if you want it.
+# mcp_servers:
+#   google-workspace:
+#     url: "https://workspace.googleapis.com/mcp"
+#     auth: oauth
+
+# --- Optional, v2, NOT recommended on day one (docs/security.md) ---
+# Wiring your agent to the Compute Engine MCP server would let it
+# inspect/manage its own VM (and other Compute resources in this
+# project) directly. That's real infrastructure control handed to an
+# autonomous agent -- deliberately left out of the default setup. Add
+# it yourself later once you've gotten a feel for how your agent behaves.
+# mcp_servers:
+#   gcp-compute:
+#     url: "https://compute.googleapis.com/mcp"
+#     auth: oauth
+EOF
+chown hermes:hermes /home/hermes/.hermes/config.yaml
+chmod 600 /home/hermes/.hermes/config.yaml
+unset API_KEY
+
+# --- 5. NVIDIA OpenShell sandbox (docs/security.md, measure 5) ---
+# Wraps Hermes's execution: Landlock LSM filesystem restriction + seccomp
+# syscall filtering + this declarative policy. Runs in AUDIT mode by
+# default -- observe what Hermes's tools actually touch during
+# pre-workshop testing, then flip OPENSHELL_MODE to "enforce" (hard_requirement
+# Landlock) once a working policy has been validated against a real run.
+# Do NOT ship "enforce" without a full rehearsal first -- an over-strict
+# policy can silently break a Hermes tool mid-demo. See the known
+# best_effort-silently-no-ops issue: github.com/NVIDIA/OpenShell/issues/803
+OPENSHELL_MODE="audit"
+OPENSHELL_AVAILABLE=0
+
+# TODO before the workshop: pin an exact, verified OpenShell install
+# command/version here. See https://docs.nvidia.com/openshell/about/installation
+# for the current official Debian/Ubuntu package install instructions --
+# intentionally not hardcoding an unverified install URL in this script.
+if command -v openshell &>/dev/null; then
+  OPENSHELL_AVAILABLE=1
+else
+  echo "NOTE: openshell not found on this image -- see TODO above. Hermes will run unsandboxed until this is filled in."
+fi
+
+mkdir -p /etc/openshell
+cat <<'POLICY' > /etc/openshell/hermes-policy.yaml
+# Starter policy. Verify field names/schema against the installed
+# OpenShell version's own docs before relying on this in production --
+# not independently confirmed against a live install at authoring time.
+version: 1
+landlock:
+  mode: best_effort   # switch to hard_requirement once tuned, see above
+filesystem:
+  allow:
+    - path: /home/hermes
+      access: read-write
+  deny:
+    - path: /home/hermes/.ssh
+      access: read-write
+    - path: /etc/shadow
+      access: read-write
+network:
+  # Permissive by default -- Hermes's core value is connecting to
+  # arbitrary MCP servers/APIs, so this does NOT allowlist destinations.
+  # See docs/security.md's "guiding principle" section.
+  default: allow
+  deny:
+    # Closes the GCP metadata-server credential-theft path (measure 6):
+    # no legitimate MCP server or API needs this address, so blocking it
+    # costs nothing functionally. Only enforced once OPENSHELL_MODE is
+    # "enforce" -- audit mode observes but does not block.
+    - host: 169.254.169.254
+POLICY
+
+# --- 6. systemd unit ---
+if [ "${OPENSHELL_AVAILABLE}" = "1" ]; then
+  EXEC_START="/usr/bin/env openshell run --policy=/etc/openshell/hermes-policy.yaml --mode=${OPENSHELL_MODE} -- hermes gateway"
+else
+  EXEC_START="/usr/bin/env hermes gateway"
+fi
+
+cat <<EOF > /etc/systemd/system/hermes-agent.service
+[Unit]
+Description=Hermes Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hermes
+WorkingDirectory=/home/hermes
+ExecStart=${EXEC_START}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now hermes-agent.service
+
+echo "READY" > /run/hermes-anvil-startup-complete
+echo "=== Hermes Anvil startup finished: $(date -u) ==="
