@@ -45,6 +45,13 @@ class HermesAnvilApp(App):
         width: 80%;
         max-width: 100;
     }
+    /* LoadingIndicator defaults to width/height: 100%, sized to fill
+       whatever container it's in -- fine for a full-pane overlay, but
+       these are a small spinner sitting under a one-line status label,
+       not a takeover of the screen. */
+    LoadingIndicator {
+        height: 3;
+    }
     """
 
     def __init__(self, ctx: RunContext) -> None:

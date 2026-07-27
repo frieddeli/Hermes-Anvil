@@ -4,7 +4,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
 from textual.screen import Screen
-from textual.widgets import RichLog, Static
+from textual.widgets import LoadingIndicator, RichLog, Static
 
 from hermes_anvil import activity_log
 from hermes_anvil.gcp.preflight import run_preflight
@@ -17,6 +17,7 @@ class PreflightScreen(Screen):
     def compose(self) -> ComposeResult:
         with Vertical(classes="step-body"):
             yield Static("Checking your GCP account...", id="status")
+            yield LoadingIndicator(id="spinner")
             # Live feed of gcloud-mcp's own subprocess output -- without
             # this, a slow first-time `npx` package fetch and a genuine
             # hang look identical (a static status line, nothing moving).
@@ -31,8 +32,10 @@ class PreflightScreen(Screen):
         try:
             result = await run_preflight(ctx.router)
         except Exception as e:
+            self.query_one("#spinner", LoadingIndicator).display = False
             status.update(f"Error checking your GCP account: {e}\n\nPress q to quit.")
             return
+        self.query_one("#spinner", LoadingIndicator).display = False
 
         if not result.authenticated:
             status.update(
