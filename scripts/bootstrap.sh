@@ -68,4 +68,11 @@ fi
 
 step "2/2" "Launching Hermes Anvil..."
 printf '\n'
-uvx --from git+https://github.com/frieddeli/Hermes-Anvil hermes-anvil
+# --refresh is required, not optional: confirmed live that a plain
+# `uvx --from git+URL` can serve a stale cached build instead of
+# re-resolving the latest commit on the branch. Without this, a real
+# attendee running this exact script has no way to know they're on old
+# code -- the app just silently runs whatever uv happened to have
+# cached from a previous invocation of the same URL, which could be
+# anyone's, any time in the past.
+uvx --refresh --from git+https://github.com/frieddeli/Hermes-Anvil hermes-anvil

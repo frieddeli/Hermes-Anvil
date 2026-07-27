@@ -31,7 +31,25 @@ not documented); `mcp` SDK source read locally in .venv to trace it.
 from __future__ import annotations
 
 from contextlib import AsyncExitStack
+from pathlib import Path
 from typing import Any
+
+# stdio_client() defaults its subprocess's stderr to our own sys.stderr,
+# which is the same terminal Textual renders to -- confirmed live: npm's
+# own notices and gcloud-mcp's own INFO logs bled directly onto the
+# screen, rendering over the TUI instead of being captured. Redirected
+# to a log file instead of sys.stderr or /dev/null so the output is
+# still available for debugging without polluting the visible terminal.
+#
+# This must be a plain file object, not a custom write()-only wrapper --
+# confirmed live that stdio_client() hands `errlog` to the subprocess
+# machinery as a raw OS-level stderr target, which requires a real
+# `fileno()`. Child-process writes happen at the fd level and never go
+# through a Python object's `write()` at all, so a tee-via-write()
+# wrapper both crashes (missing fileno()) and wouldn't have worked
+# anyway. Screens that want a live feed tail this file instead --
+# see activity_log.py.
+STDIO_SUBPROCESS_LOG = Path.home() / ".hermes-anvil" / "mcp-subprocess.log"
 
 
 class McpClient:
@@ -51,8 +69,14 @@ class McpClient:
         from mcp import ClientSession, StdioServerParameters
         from mcp.client.stdio import stdio_client
 
+        STDIO_SUBPROCESS_LOG.parent.mkdir(parents=True, exist_ok=True)
+        errlog = STDIO_SUBPROCESS_LOG.open("a")
+        self._stack.callback(errlog.close)
+
         params = StdioServerParameters(command=command, args=args)
-        read, write = await self._stack.enter_async_context(stdio_client(params))
+        read, write = await self._stack.enter_async_context(
+            stdio_client(params, errlog=errlog)
+        )
         session = await self._stack.enter_async_context(ClientSession(read, write))
         await session.initialize()
         self._session = session
