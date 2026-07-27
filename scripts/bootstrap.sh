@@ -19,4 +19,4 @@ else
 fi
 
 echo "Launching Hermes Anvil..."
-uvx hermes-anvil
+uvx --from git+https://github.com/frieddeli/Hermes-Anvil hermes-anvil

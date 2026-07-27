@@ -13,7 +13,7 @@ GCP account creation and billing/free-trial signup are interactive, human, brows
 ```mermaid
 flowchart TD
     A["Cloud Shell<br/>(the user's own identity)"] -->|"curl bootstrap.sh"| B["installs uv if missing"]
-    B --> C["uvx hermes-anvil"]
+    B --> C["uvx --from git+https://.../Hermes-Anvil hermes-anvil"]
     C --> D["Textual TUI<br/>(hermes_anvil.app)"]
 
     D --> E["gcloud-mcp<br/>(local stdio subprocess)"]
@@ -129,7 +129,7 @@ curl -fsSL https://raw.githubusercontent.com/frieddeli/Hermes-Anvil/main/scripts
 
 Hosted directly off this repo's `main` branch via GitHub's raw-content URL, no custom domain or separate hosting needed, same pattern most CLI installers use.
 
-`bootstrap.sh` installs [`uv`](https://astral.sh/uv) if missing (mirroring Hermes Agent's own installer philosophy), then runs `uvx hermes-anvil` (once published to PyPI) or `uvx --from git+https://github.com/frieddeli/Hermes-Anvil hermes-anvil` (pre-PyPI). PyPI-vs-git+https gets decided based on remaining churn as the project approaches its first real users.
+`bootstrap.sh` installs [`uv`](https://astral.sh/uv) if missing (mirroring Hermes Agent's own installer philosophy), then runs `uvx --from git+https://github.com/frieddeli/Hermes-Anvil hermes-anvil`. Verified working end to end (a plain `uvx hermes-anvil` was tried first in a real Cloud Shell session and failed, since nothing's published to PyPI). A PyPI release remains a possible future switch, but isn't needed for this to work today.
 
 ## Deferred to v2
 

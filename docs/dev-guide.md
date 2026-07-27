@@ -1,3 +1,23 @@
+frieddeli@cloudshell:~ (project-568833c4-02c4-45cd-a06)$Your Cloud Platform project in this session is set to project-568833c4-02c4-45cd-a06.
+
+Use `gcloud config set project [PROJECT_ID]` to change to a different project.
+
+frieddeli@cloudshell:~ (project-568833c4-02c4-45cd-a06)$ curl -fsSL https://raw.githubusercontent.com/frieddeli/Hermes-Anvil/main/scripts/bootstrap.sh | bash
+
+Checking for uv...
+
+uv is already installed.
+
+Launching Hermes Anvil...
+
+  × No solution found when resolving tool dependencies:
+
+  ╰─▶ Because hermes-anvil was not found in the package registry and you require hermes-anvil, we can conclude that your requirements are unsatisfiable.
+
+frieddeli@cloudshell:~ (project-568833c4-02c4-45cd-a06)$Your Cloud Platform project in this session is set to project-568833c4-02c4-45cd-a06.
+
+frieddeli@cloudshell:~ (project-568833c4-02c4-45cd-a06)$
+
 # Developer guide
 
 Everything a maintainer needs that isn't already covered by [architecture.md](architecture.md) (how it's built) or [security.md](security.md) (the security model). This doc tracks what's implemented, what's verified, and what to do next -- read it before touching the code or planning a real run.
@@ -19,7 +39,7 @@ None of these have been tried against a live GCP project yet:
 ## Distribution gaps (block real users even once the above are fixed)
 
 - **Hosting for the bootstrap one-liner: resolved.** Served directly off this repo via `raw.githubusercontent.com/frieddeli/Hermes-Anvil/main/scripts/bootstrap.sh` rather than a custom domain -- zero setup, already live now that the repo is pushed.
-- **Not published to PyPI.** `scripts/bootstrap.sh` runs `uvx hermes-anvil`, which needs either a PyPI release or a `uvx --from git+https://...` fallback. Decide roughly a week before release based on remaining churn (see `docs/architecture.md`'s Distribution section).
+- **PyPI vs. git+https: resolved.** `scripts/bootstrap.sh` runs `uvx --from git+https://github.com/frieddeli/Hermes-Anvil hermes-anvil`. This was forced by an actual failure: a plain `uvx hermes-anvil` was tried first in a real Cloud Shell session (2026-07-27) and failed with "hermes-anvil was not found in the package registry," since nothing's published to PyPI. Confirmed working after switching to the git+https form. A PyPI release is still possible later but isn't blocking anything now.
 
 ## Dev environment setup
 
