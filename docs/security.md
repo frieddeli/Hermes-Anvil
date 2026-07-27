@@ -1,0 +1,36 @@
+# Security posture
+
+This is a living document, not a static description. Each measure below is tracked with its own status so the posture can be tightened or relaxed — as a workshop date approaches, or afterward based on what's learned — without re-deriving the reasoning each time.
+
+Two layers matter here, and they're not interchangeable:
+
+- **Perimeter security** — who and what can reach the VM and its credentials.
+- **Agent-level security** — what Hermes itself is allowed to do once it's running. Hermes is an autonomous, tool-calling agent; perimeter controls alone don't constrain it from the inside if it's tricked or misused.
+
+## Guiding principle: don't gate the agent's usefulness
+
+Hermes's core appeal is connecting to arbitrary MCP servers and APIs — that's the point of giving someone their own agent. Security controls here are about closing specific, high-value risks (credential theft, host compromise), not about restricting which services the agent can talk to. Where those two goals could conflict, the plan favors the permissive-by-default, targeted-denylist approach over a narrow allowlist. See measures 4–6.
+
+## Measures
+
+| # | Measure | Status (v1) | Why it's a distinct control |
+|---|---|---|---|
+| 1 | No public IP + IAP-tunneled SSH only (`gcloud compute ssh --tunnel-through-iap`); opt-in public IP requires an explicit typed risk acknowledgment | **Enabled** | Default networking posture — no open SSH port on the internet in the default path. |
+| 2 | Least-privilege dedicated VM service account (never the default/broad Compute Engine SA) | **Enabled** | Limits what the VM itself — and anything running on it — can do against the rest of the project via IAM. |
+| 3 | Secret Manager for the model-provider API key; written via a direct SDK call that bypasses MCP entirely; only the secret *name* (never the value) appears in the startup script | **Enabled** | The key never touches Cloud Shell scrollback, shell history, `ps` output, or a subprocess CLI — a raw secret going through any of those is a real exposure path. |
+| 4 | VPC egress firewall, **permissive-by-default**: allow general outbound internet on standard web ports (443/80); block only a short list of specific high-risk paths rather than an allowlist of destinations | **Enabled, v1** | Perimeter-layer control on top of 1–3. Deliberately *not* a narrow allowlist (e.g. "only model-provider + package registries + Google APIs") — that would block any other MCP server or API an attendee wires up later, undermining the whole point of giving them an extensible agent. This control blocks specific known-bad paths (see #6), not gatekeeps which services the agent can use. |
+| 5 | [NVIDIA OpenShell](https://github.com/NVIDIA/OpenShell) sandbox wrapping Hermes's execution — Landlock LSM filesystem restriction + seccomp syscall filtering + a declarative YAML policy | **Enabled, v1** — built in **audit mode** during pre-workshop testing (observe what Hermes's tools actually touch), tightened to `hard_requirement` Landlock mode before the event | Agent-level control, distinct from 1–4: constrains what Hermes can do *on the host* (filesystem/process/syscalls) even though it's a fully authenticated, intentionally-running process. Its network policy follows the same permissive-by-default principle as #4 — the value here is protecting host files/processes, not restricting which remote MCP servers/APIs Hermes reaches. Note: OpenShell's `best_effort` Landlock mode can silently no-op on a capable kernel ([known issue](https://github.com/NVIDIA/OpenShell/issues/803)) — use `hard_requirement` so a policy failure is loud, not silent. Requires Linux kernel 5.13+ for Landlock (Ubuntu 22.04's default 5.15 kernel qualifies) and glibc 2.28+. |
+| 6 | Explicit block on the agent reaching the GCP metadata server (`169.254.169.254`), carving out only the startup script's own one-time credential fetch | **Documented, not enabled in v1** | The one targeted deny worth having independent of the permissive-egress stance above. No legitimate MCP server or API an attendee adds will ever need the metadata endpoint, so blocking it costs nothing functionally while closing the sharpest credential-theft path: a tool-calling agent that can make arbitrary HTTP requests could otherwise be tricked (prompt injection, a bad self-written skill, etc.) into fetching the metadata endpoint and exfiltrating its own VM's service-account token. Not automatically covered by #4 — metadata access is a link-local hop that bypasses normal egress firewall rules — so it needs its own explicit deny, most naturally added when #5's policy is authored/tuned. |
+| 7 | Pin Hermes to a single terminal backend (its sandboxed local one), disabling its SSH/Docker/Singularity/Modal/Daytona backends | **Documented, not enabled in v1** | Config-level control specific to Hermes's own backend system. Without it, the agent could open connections to arbitrary external hosts via an alternate backend, sidestepping the VM/network controls above. |
+| 8 | Per-key spend/rate caps on the attendee's model-provider API key, if the provider supports it | **Documented, attendee-facing recommendation, not harness-enforced** | Outside the harness's control — it's the provider's own dashboard — but worth a line in the handoff doc since it caps runaway-agent-loop cost risk after the workshop, when nobody's watching it. |
+| 9 | Unattended OS security patching on the VM (a systemd timer added by the startup script) | **Documented, not enabled in v1** | These are long-lived, attendee-owned, facilitator-unmanaged instances. Worth seeding even though it's not the top priority for the first run. |
+
+## Why the v1/deferred split
+
+Measures 4 and 5 give real defense-in-depth — network perimeter and agent sandbox — without adding new failure modes to the live provisioning flow. Measures 6 and 7 are valuable but naturally fall out of authoring #5's OpenShell policy, so they're tracked here to make sure they aren't forgotten when that policy gets written, rather than being separately engineered right away. Measure 9 is lower urgency for a first workshop run. Keeping 6, 7, and 9 documented-but-off means they're a deliberate, visible dial — easy to flip on for a future run — rather than a dropped idea.
+
+## Explicitly deferred to v2 (not a security gap, a scope decision)
+
+Wiring Hermes's own MCP config to the Compute Engine MCP server, so the deployed agent could inspect or manage its own VM, is **not** part of this security model — it's deferred to v2 entirely. Handing a freshly-hatched, non-dev-operated agent real infrastructure control (create/resize/delete cloud resources, real billing exposure) on day one is a materially bigger trust decision than anything in the table above, and isn't needed for the "hatch and take home a working agent" goal. It's noted in the handoff doc as something attendees can add themselves later.
+
+By contrast, extending an agent with **Google Workspace services** (Gmail, Calendar, Drive, Chat) is normal personal-productivity tool access, not infra control — the handoff doc ships ready-to-uncomment config pointing attendees at Google's official [Workspace MCP server](https://docs.cloud.google.com/mcp/supported-products) rather than leaving them to hand-roll raw API calls with an unmanaged key.
