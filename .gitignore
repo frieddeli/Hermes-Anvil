@@ -1,3 +1,4 @@
+# Python build/test artifacts
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -7,3 +8,23 @@ dist/
 build/
 *.egg
 .ruff_cache/
+
+# Editor/OS cruft
+.vscode/
+.idea/
+.DS_Store
+
+# Credentials -- defensive, in case of local testing against real GCP.
+# Nothing in this codebase writes these by design (secrets are meant to
+# live only in Secret Manager, never on disk -- see docs/security.md),
+# but a developer manually running `gcloud iam service-accounts keys
+# create` or similar during real-GCP testing shouldn't be one `git add .`
+# away from committing it.
+.env
+.env.*
+*.pem
+*.key
+*-key.json
+*service-account*.json
+*credentials*.json
+application_default_credentials.json
