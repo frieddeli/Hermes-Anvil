@@ -1,4 +1,4 @@
-"""Deterministic, GCP-legal resource names derived from the attendee's
+"""Deterministic, GCP-legal resource names derived from the user's
 chosen agent name. Every resource in a run shares one `slug`.
 """
 

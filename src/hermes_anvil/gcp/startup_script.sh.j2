@@ -15,7 +15,7 @@ if ! id hermes &>/dev/null; then
   useradd -m -s /bin/bash hermes
 fi
 
-# --- 2. Fetch the attendee's model-provider API key from Secret Manager ---
+# --- 2. Fetch the user's model-provider API key from Secret Manager ---
 # Only the secret NAME lives in this script (see docs/security.md,
 # measure 3) -- the value is fetched here, at boot, via the VM's own
 # attached least-privilege service account (metadata-server-based
@@ -64,7 +64,7 @@ unset API_KEY
 # Wraps Hermes's execution: Landlock LSM filesystem restriction + seccomp
 # syscall filtering + this declarative policy. Runs in AUDIT mode by
 # default -- observe what Hermes's tools actually touch during
-# pre-workshop testing, then flip OPENSHELL_MODE to "enforce" (hard_requirement
+# pre-release testing, then flip OPENSHELL_MODE to "enforce" (hard_requirement
 # Landlock) once a working policy has been validated against a real run.
 # Do NOT ship "enforce" without a full rehearsal first -- an over-strict
 # policy can silently break a Hermes tool mid-demo. See the known
@@ -73,7 +73,7 @@ OPENSHELL_MODE="audit"
 OPENSHELL_AVAILABLE=0
 
 # Official installer (verified reachable at authoring time -- confirm
-# still current before the workshop, installers can move):
+# still current before shipping, installers can move):
 # https://docs.nvidia.com/openshell/about/installation
 # Detects the OS and installs the openshell CLI + openshell-gateway
 # daemon + systemd user service via the native package manager. Non-fatal

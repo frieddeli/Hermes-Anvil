@@ -1,7 +1,7 @@
 """Fake GcpToolRouter for --dry-run mode.
 
 Simulates the same interface as mcp.tool_router.RealGcpToolRouter, with
-configurable latency and injectable failures, so the full attendee flow
+configurable latency and injectable failures, so the full user flow
 (and its resume logic) can be exercised locally at $0 and in CI with no
 real GCP credentials.
 """
@@ -51,7 +51,7 @@ class FakeGcpToolRouter:
 
         if args[:2] == ["auth", "list"]:
             # Mirrors --format=value(account): one bare value, no header.
-            return GcloudResult(0, "dry-run-attendee@example.com")
+            return GcloudResult(0, "dry-run-user@example.com")
 
         if args[:2] == ["projects", "create"]:
             project = args[2]

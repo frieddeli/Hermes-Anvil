@@ -59,7 +59,7 @@ def test_project_id():
 
 def test_project_id_suffix_always_survives_realistic_long_slugs():
     # SLUG_MAX_LEN allows slugs up to 20 chars (e.g. "the-great-destroyer",
-    # a perfectly plausible attendee-chosen agent name) -- with the
+    # a perfectly plausible user-chosen agent name) -- with the
     # default 4-char suffix, the suffix must never be truncated away.
     long_slug = "the-great-destroyer"  # 19 chars
     assert len(long_slug) > 12  # more than the old, unreserved budget

@@ -1,7 +1,7 @@
 """Checks that must pass before the harness will touch anything: an
 active gcloud identity and an open billing account. This is the code
 that enforces the scope boundary in docs/architecture.md -- GCP account
-and billing signup are the attendee's own pre-workshop responsibility
+and billing signup are the user's own pre-setup responsibility
 (docs/prerequisites.md), not something the harness can do for them.
 """
 

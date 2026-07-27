@@ -1,7 +1,7 @@
 """Firewall rules. Default path: no public IP, IAP-tunneled SSH only,
 scoped to Google's fixed IAP forwarding range. Public-IP is an opt-in
 path, only ever called after an explicit risk acknowledgment in the TUI
-(docs/security.md, measure 1), and scoped to the attendee's own /32
+(docs/security.md, measure 1), and scoped to the user's own /32
 rather than 0.0.0.0/0.
 """
 
@@ -44,7 +44,7 @@ async def ensure_iap_firewall_rule(router: GcpToolRouter, state: RunState) -> st
 
 
 async def ensure_public_ip_firewall_rule(
-    router: GcpToolRouter, state: RunState, attendee_ip: str
+    router: GcpToolRouter, state: RunState, source_ip: str
 ) -> str:
     """Only call this after the TUI's explicit public-IP risk acknowledgment."""
     rule_name = naming.public_firewall_rule_name(state.slug)
@@ -58,7 +58,7 @@ async def ensure_public_ip_firewall_rule(
             "--direction=INGRESS",
             "--action=ALLOW",
             "--rules=tcp:22",
-            f"--source-ranges={attendee_ip}/32",
+            f"--source-ranges={source_ip}/32",
             f"--target-tags={rule_name}",
         ]
     )
@@ -68,10 +68,10 @@ async def ensure_public_ip_firewall_rule(
 
 
 def detect_public_ip() -> str | None:
-    """Best-effort lookup of the attendee's current public IP, used to
+    """Best-effort lookup of the user's current public IP, used to
     scope the opt-in public-IP firewall rule to a /32 instead of
     0.0.0.0/0. Returns None on any failure -- callers must handle that
-    (e.g. by asking the attendee to type their IP manually) rather than
+    (e.g. by asking the user to type their IP manually) rather than
     falling back to a wide-open rule.
     """
     try:

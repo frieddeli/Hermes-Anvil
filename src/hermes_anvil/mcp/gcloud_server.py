@@ -3,13 +3,13 @@ stdio subprocess via `npx`.
 
 Handles everything before the Compute Engine API exists on the project:
 project create/select, billing link, API enablement, IAM, firewall rules.
-Uses whatever identity is already active via the attendee's own
+Uses whatever identity is already active via the user's own
 `gcloud auth`/ADC in Cloud Shell -- no separate auth flow.
 
-Before relying on this in a real workshop run, pin the installed
-gcloud-mcp version and confirm its denylist doesn't block `projects
-create` / `services enable` / `billing` -- see docs/security.md and the
-"Open decisions" section of the approved plan.
+Before relying on this in a real run, pin the installed gcloud-mcp
+version and confirm its denylist doesn't block `projects create` /
+`services enable` / `billing` -- see docs/security.md and the "Open
+decisions" section of the approved plan.
 """
 
 from __future__ import annotations

@@ -2,13 +2,13 @@
 
 **Hatch your own agent.**
 
-Hermes Anvil is a guided setup tool for the workshop. Run one command in your browser, answer a few questions, and walk away owning a live, running [Hermes Agent](https://github.com/nousresearch/hermes-agent), a self-improving AI agent with persistent memory that keeps learning the more you use it. It's yours, living in your own Google Cloud project under your own billing, so you can keep using it long after the workshop ends.
+Hermes Anvil is a guided setup tool. Run one command in your browser, answer a few questions, and walk away owning a live, running [Hermes Agent](https://github.com/nousresearch/hermes-agent), a self-improving AI agent with persistent memory that keeps learning the more you use it. It's yours, living in your own Google Cloud project under your own billing, so you can keep using it for as long as you want.
 
 No coding experience needed. If you can copy and paste a command, you can do this.
 
 ## Before you start
 
-You'll need three things ready ahead of time. Do this at least a day before the workshop, not the morning of:
+You'll need three things ready ahead of time:
 
 1. **A Google account** with the GCP free trial activated ($300 in credit, usable for about 90 days). You'll need a card on file for verification, though you won't be charged during the trial.
 2. **A model-provider API key** for your agent's "brain." We recommend [OpenRouter](https://openrouter.ai): it's free to start, no card needed, and a one-time $10 top-up (never expires) unlocks 1,000 free requests a day on their `:free` models. Nous Portal and OpenAI also work.
@@ -38,7 +38,7 @@ See [docs/security.md](docs/security.md) for what's actually protecting your age
 
 ## Something not working?
 
-Check [docs/prerequisites.md](docs/prerequisites.md) first. Most snags come down to a missed prerequisite step: billing not active yet, or a card verification still pending. If you're stuck beyond that, flag a workshop organizer.
+Check [docs/prerequisites.md](docs/prerequisites.md) first. Most snags come down to a missed prerequisite step: billing not active yet, or a card verification still pending. If you're stuck beyond that, [open an issue](../../issues).
 
 ## What this costs after your free trial ends
 

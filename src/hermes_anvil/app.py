@@ -1,7 +1,7 @@
 """Textual App: screen-stack orchestrator and shared run context.
 
 Screens read/write `self.app.ctx` (a `RunContext`) rather than passing
-state through constructors, since the attendee flow is a strict linear
+state through constructors, since the user flow is a strict linear
 sequence of full-screen steps (see docs/architecture.md) and every
 screen after `name_your_agent` needs the same handful of shared values
 (the router, the in-progress `RunState`, dry-run flag, etc).
