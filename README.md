@@ -14,9 +14,9 @@ Hermes Anvil is the harness, not the agent. It's an interactive terminal wizard 
 
 Full design details live in [docs/architecture.md](docs/architecture.md). The security model — what's protected, how, and what's tunable — lives in [docs/security.md](docs/security.md).
 
-## Quick start (attendees)
+## Quick start (attendees) — not usable yet, see Status
 
-Before you start, make sure you've done everything in [docs/prerequisites.md](docs/prerequisites.md) — a Google account with the $300 free trial activated (needs a card on file, do this the day before, not the morning of) and a model-provider API key ready to paste in when asked.
+This is the intended end-state UX, once the items in Status below are done:
 
 1. Open [shell.cloud.google.com](https://shell.cloud.google.com) and sign in with the Google account you set up billing with.
 2. Run:
@@ -24,17 +24,32 @@ Before you start, make sure you've done everything in [docs/prerequisites.md](do
    curl -fsSL https://get.hermesanvil.dev | bash
    ```
 3. Follow the on-screen wizard — it'll ask you to name your agent, walk through a couple of setup steps, and finish by "hatching" your VM. Takes about 15–20 minutes.
-4. At the end, it writes a handoff file to your Cloud Shell home directory (`~/hermes-anvil-<your-agent>-handoff.md`) with your reconnect command and next steps — that file survives across Cloud Shell sessions, so you can always come back to it.
+4. At the end, it writes a handoff file to your Cloud Shell home directory (`~/hermes-anvil-<your-agent>-handoff.md`) with your reconnect command and next steps.
 
-> **Note:** this is what the finished harness will feel like to use. The harness itself isn't built yet — see Status below.
+**This does not work today.** `get.hermesanvil.dev` isn't hosted, and nothing is published to PyPI yet, so step 2 has nothing to install. Don't try this in Cloud Shell until Status below says otherwise.
 
-## Quick start (developing the harness)
+## Quick start (developing/testing right now)
 
-There's no application code yet (see Status). Once the `src/hermes_anvil` package exists, local iteration will run against `--dry-run` mode (fake MCP/SDK responses, $0 cost) rather than a real GCP project — see the "Testing without burning real GCP spend" section of [docs/architecture.md](docs/architecture.md).
+The application code exists and passes its full test suite (`--dry-run` mode, zero real GCP calls), but has never been run against a real GCP project. To try it yourself today, from a clone of this repo:
+
+```
+uv venv --python 3.11 && source .venv/bin/activate
+uv pip install -e ".[dev]"
+python -m pytest              # 23 tests, all against fakes -- $0 cost
+python -m hermes_anvil --dry-run
+```
+
+The last command launches the real TUI, walking through all 12 screens end-to-end, but every GCP/MCP call is faked (see `dryrun/fakes.py`) -- nothing touches real Google Cloud. There is no way yet to point this at a real GCP project (no `gcloud`/MCP tool-name verification has been done -- see Status).
 
 ## Status
 
-Early scaffold. No application code yet — see `docs/` for the design this repo is being built against.
+Implemented and tested in `--dry-run` only. Before this can run for real in Cloud Shell, three things need to happen against an actual GCP project (none have been tried yet):
+
+1. **Verify the Compute Engine MCP server's real tool names.** `mcp/compute_server.py` guesses `compute.instances.insert`/`compute.instances.get` from REST API naming conventions — never confirmed against a live `https://compute.googleapis.com/mcp` via `list_tools()`.
+2. **Verify gcloud-mcp actually works as assumed.** Never run `npx @google-cloud/gcloud-mcp` for real — its tool schema and whether its denylist blocks `projects create`/`services enable`/`billing projects link` are unconfirmed.
+3. **Verify Hermes Agent's real CLI surface.** The startup script assumes `hermes gateway` is the right long-running command and `~/.hermes/config.yaml` is the right config path, based on a README read, not an actual install.
+
+Separately, before an attendee could use it: publish to PyPI (or point `bootstrap.sh` at a git ref) and stand up hosting for the `curl` URL. Neither is set up.
 
 ## Docs
 
