@@ -1,7 +1,21 @@
 #!/bin/bash
 # Hermes Anvil VM startup script -- rendered by gcp/compute.py and passed
-# as instance metadata. Runs once at first boot as root.
+# as instance metadata.
+#
+# IMPORTANT: GCP re-runs the `startup-script` metadata on EVERY boot, not
+# just at instance creation -- this is not a "runs once" hook by default.
+# Without a persistent-storage guard, this script would re-install Hermes,
+# clobber any config.yaml customization the user made (like uncommenting
+# the Workspace MCP block), and race against the already-enabled systemd
+# unit on every subsequent reboot. The marker file below makes everything
+# past this point a true one-time provisioning step.
 set -euo pipefail
+
+PROVISIONED_MARKER="/var/lib/hermes-anvil-provisioned"
+if [ -f "${PROVISIONED_MARKER}" ]; then
+  echo "Already provisioned (marker: ${PROVISIONED_MARKER}) -- skipping re-provisioning on this boot."
+  exit 0
+fi
 
 PROJECT="{{ project }}"
 SECRET_NAME="{{ secret_name }}"
@@ -100,9 +114,20 @@ chmod 600 /home/hermes/.hermes/config.yaml
 # regardless of whether OpenShell installs successfully or what mode
 # it's running in, and can be enabled unconditionally rather than
 # gated behind an audit/enforce toggle.
-HERMES_UID=$(id -u hermes)
-iptables -A OUTPUT -d 169.254.169.254 -m owner --uid-owner "${HERMES_UID}" -j DROP
-echo "Blocked hermes user (uid ${HERMES_UID}) from reaching the metadata server."
+#
+# Guarded on iptables actually existing: recent Debian images increasingly
+# default to nftables-only. Under `set -euo pipefail`, an unguarded
+# missing-command failure here would abort the ENTIRE script, taking
+# down OpenShell setup and the systemd unit below with it -- not just
+# this one optional protection. Non-fatal if missing, same pattern as
+# the OpenShell install below.
+if command -v iptables &>/dev/null; then
+  HERMES_UID=$(id -u hermes)
+  iptables -A OUTPUT -d 169.254.169.254 -m owner --uid-owner "${HERMES_UID}" -j DROP
+  echo "Blocked hermes user (uid ${HERMES_UID}) from reaching the metadata server."
+else
+  echo "WARNING: iptables not found -- metadata-server block (security.md measure 6) not applied."
+fi
 
 # --- 6. NVIDIA OpenShell sandbox (docs/security.md, measure 5) ---
 # Wraps Hermes's execution: Landlock LSM filesystem restriction + a
@@ -195,5 +220,5 @@ EOF
 systemctl daemon-reload
 systemctl enable --now hermes-agent.service
 
-echo "READY" > /run/hermes-anvil-startup-complete
+touch "${PROVISIONED_MARKER}"
 echo "=== Hermes Anvil startup finished: $(date -u) ==="

@@ -85,7 +85,13 @@ async def _run_app(ctx: RunContext) -> None:
     # rather than the sync app.run() is what keeps router.close() in the
     # loop the connections were actually opened in.
     try:
-        await HermesAnvilApp(ctx).run_async()
+        # mouse=False: Cloud Shell's web-based terminal doesn't cleanly
+        # consume Textual's SGR mouse-tracking escape sequences -- they
+        # leak through as visible garbage text (e.g. "^[[<0;137;14M")
+        # instead of being intercepted. The app is fully keyboard-
+        # navigable (Tab/Enter reach every Button), so disabling mouse
+        # support costs nothing functionally and avoids this.
+        await HermesAnvilApp(ctx).run_async(mouse=False)
     finally:
         await ctx.router.close()
 
