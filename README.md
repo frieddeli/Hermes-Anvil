@@ -21,7 +21,7 @@ Full details, including exactly where to sign up and what to watch out for, are 
 1. Open [shell.cloud.google.com](https://shell.cloud.google.com) and sign in with the Google account you set up billing with.
 2. Run:
    ```
-   curl -fsSL https://raw.githubusercontent.com/<org>/hermes-anvil/main/scripts/bootstrap.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/frieddeli/Hermes-Anvil/main/scripts/bootstrap.sh | bash
    ```
 3. Follow the on-screen wizard. It'll ask you to name your agent, then take care of everything else: setting up your project securely, storing your API key safely, and building your agent's new home. Takes about 15 to 20 minutes.
 4. When it's done, you'll get a handoff file in your Cloud Shell home directory (`~/hermes-anvil-<your-agent>-handoff.md`) with everything you need to reconnect later. It's still there next time you open Cloud Shell, even after this session ends.

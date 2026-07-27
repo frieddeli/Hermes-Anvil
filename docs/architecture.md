@@ -124,12 +124,12 @@ flowchart TD
 ## Distribution
 
 ```
-curl -fsSL https://raw.githubusercontent.com/<org>/hermes-anvil/main/scripts/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/frieddeli/Hermes-Anvil/main/scripts/bootstrap.sh | bash
 ```
 
-Hosted directly off this repo's `main` branch via GitHub's raw-content URL, no custom domain or separate hosting needed, same pattern most CLI installers use. (`<org>` is a placeholder until the repo has an actual GitHub home; see `docs/dev-guide.md`.)
+Hosted directly off this repo's `main` branch via GitHub's raw-content URL, no custom domain or separate hosting needed, same pattern most CLI installers use.
 
-`bootstrap.sh` installs [`uv`](https://astral.sh/uv) if missing (mirroring Hermes Agent's own installer philosophy), then runs `uvx hermes-anvil` (once published to PyPI) or `uvx --from git+https://github.com/<org>/hermes-anvil hermes-anvil` (pre-PyPI). PyPI-vs-git+https gets decided based on remaining churn as the project approaches its first real users.
+`bootstrap.sh` installs [`uv`](https://astral.sh/uv) if missing (mirroring Hermes Agent's own installer philosophy), then runs `uvx hermes-anvil` (once published to PyPI) or `uvx --from git+https://github.com/frieddeli/Hermes-Anvil hermes-anvil` (pre-PyPI). PyPI-vs-git+https gets decided based on remaining churn as the project approaches its first real users.
 
 ## Deferred to v2
 

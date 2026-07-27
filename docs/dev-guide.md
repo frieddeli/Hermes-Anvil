@@ -18,7 +18,7 @@ None of these have been tried against a live GCP project yet:
 
 ## Distribution gaps (block real users even once the above are fixed)
 
-- **No hosting for the bootstrap one-liner.** Decided: use a raw GitHub URL off this repo (`raw.githubusercontent.com/<org>/hermes-anvil/main/scripts/bootstrap.sh`) rather than a custom domain -- zero setup once the repo is pushed. *TBD: fill in the actual org/repo once this is pushed, and update `README.md`'s Quick Start + `docs/architecture.md`'s Distribution section accordingly.*
+- **Hosting for the bootstrap one-liner: resolved.** Served directly off this repo via `raw.githubusercontent.com/frieddeli/Hermes-Anvil/main/scripts/bootstrap.sh` rather than a custom domain -- zero setup, already live now that the repo is pushed.
 - **Not published to PyPI.** `scripts/bootstrap.sh` runs `uvx hermes-anvil`, which needs either a PyPI release or a `uvx --from git+https://...` fallback. Decide roughly a week before release based on remaining churn (see `docs/architecture.md`'s Distribution section).
 
 ## Dev environment setup
