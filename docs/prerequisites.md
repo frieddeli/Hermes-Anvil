@@ -16,8 +16,9 @@ You'll get **$300 in credit, usable for about 90 days**. Do this well ahead of t
 
 ## 3. Get a model-provider API key
 
-Hermes Agent needs a key from one of: **Nous Portal** (recommended), OpenRouter, or OpenAI.
+Hermes Agent needs a key from one of: **[OpenRouter](https://openrouter.ai) (recommended)**, Nous Portal, or OpenAI.
 
+- OpenRouter is free to start — no card required, and their `:free`-suffixed models cost $0 per token. A one-time $10 top-up (the credit never expires) raises your daily free-request cap from 50 to 1,000, at 20 requests/minute — plenty for workshop use and well beyond.
 - Get the key ahead of time and store it somewhere safe (a password manager, ideally).
 - **Don't paste it anywhere until the harness explicitly prompts you for it** — the harness will store it securely (Google Secret Manager) rather than have you type it into a general terminal.
 

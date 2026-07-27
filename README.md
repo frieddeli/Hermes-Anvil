@@ -11,7 +11,7 @@ No coding experience needed. If you can copy and paste a command, you can do thi
 You'll need three things ready ahead of time — **do this at least a day before the workshop**, not the morning of:
 
 1. **A Google account** with the GCP free trial activated ($300 in credit, usable for about 90 days — needs a card on file for verification, though you won't be charged during the trial).
-2. **A model-provider API key** for your agent's "brain" — Nous Portal is recommended, OpenRouter and OpenAI also work.
+2. **A model-provider API key** for your agent's "brain" — we recommend [OpenRouter](https://openrouter.ai): it's free to start (no card needed), and a one-time $10 top-up (never expires) unlocks 1,000 free requests a day on their `:free` models. Nous Portal and OpenAI also work.
 3. **Access to Google Cloud Shell** — just needs a browser, nothing to install.
 
 Full details, including exactly where to sign up and what to watch out for, are in [docs/prerequisites.md](docs/prerequisites.md). Please don't skip this — the setup tool can't do these steps for you, since Google requires a human to do them.
@@ -29,6 +29,7 @@ Full details, including exactly where to sign up and what to watch out for, are 
 ## What you get
 
 A running AI agent, in a project only you control, that:
+
 - Remembers things across conversations and improves its own skills over time.
 - Is reachable securely from anywhere via `gcloud compute ssh` — no open ports on the internet by default.
 - Can be extended with more tools later (like Gmail or Calendar access) — your handoff doc includes ready-to-use snippets for that.
