@@ -1,58 +1,44 @@
-
 # Hermes Anvil
 
-A guided deployment harness for a "hatch your own agent" workshop. Each attendee runs one command in Google Cloud Shell and comes out the other side owning a live, running instance of [Hermes Agent](https://github.com/nousresearch/hermes-agent) in their own GCP project — theirs to keep and take home.
+**Hatch your own agent.**
 
-## What this is
+Hermes Anvil is a guided setup tool for the workshop. Run one command in your browser, answer a few questions, and walk away owning a live, running [Hermes Agent](https://github.com/nousresearch/hermes-agent) — a self-improving AI agent with persistent memory that keeps learning the more you use it. It's yours: it lives in your own Google Cloud project, under your own billing, and you can keep using it long after the workshop ends.
 
-Hermes Anvil is the harness, not the agent. It's an interactive terminal wizard (TUI) that an attendee runs in Cloud Shell, which:
+No coding experience needed. If you can copy and paste a command, you can do this.
 
-1. Verifies they already have GCP billing enabled (a pre-workshop prerequisite — see [docs/prerequisites.md](docs/prerequisites.md)).
-2. Creates their GCP project, enables the required APIs, and sets up a least-privilege service account, network rules, and a Secret Manager entry for their model-provider API key.
-3. Provisions a small VM and installs Hermes Agent on it.
-4. Hands off a connection guide and next steps.
+## Before you start
 
-Full design details live in [docs/architecture.md](docs/architecture.md). The security model — what's protected, how, and what's tunable — lives in [docs/security.md](docs/security.md).
+You'll need three things ready ahead of time — **do this at least a day before the workshop**, not the morning of:
 
-## Quick start (attendees) — not usable yet, see Status
+1. **A Google account** with the GCP free trial activated ($300 in credit, usable for about 90 days — needs a card on file for verification, though you won't be charged during the trial).
+2. **A model-provider API key** for your agent's "brain" — Nous Portal is recommended, OpenRouter and OpenAI also work.
+3. **Access to Google Cloud Shell** — just needs a browser, nothing to install.
 
-This is the intended end-state UX, once the items in Status below are done:
+Full details, including exactly where to sign up and what to watch out for, are in [docs/prerequisites.md](docs/prerequisites.md). Please don't skip this — the setup tool can't do these steps for you, since Google requires a human to do them.
+
+## Hatching your agent
 
 1. Open [shell.cloud.google.com](https://shell.cloud.google.com) and sign in with the Google account you set up billing with.
 2. Run:
    ```
-   curl -fsSL https://get.hermesanvil.dev | bash
+   curl -fsSL https://raw.githubusercontent.com/<org>/hermes-anvil/main/scripts/bootstrap.sh | bash
    ```
-3. Follow the on-screen wizard — it'll ask you to name your agent, walk through a couple of setup steps, and finish by "hatching" your VM. Takes about 15–20 minutes.
-4. At the end, it writes a handoff file to your Cloud Shell home directory (`~/hermes-anvil-<your-agent>-handoff.md`) with your reconnect command and next steps.
+3. Follow the on-screen wizard. It'll ask you to name your agent, then take care of everything else — setting up your project securely, storing your API key safely, and building your agent's new home. Takes about 15–20 minutes.
+4. When it's done, you'll get a handoff file in your Cloud Shell home directory (`~/hermes-anvil-<your-agent>-handoff.md`) with everything you need to reconnect later — it's still there next time you open Cloud Shell, even after this session ends.
 
-**This does not work today.** `get.hermesanvil.dev` isn't hosted, and nothing is published to PyPI yet, so step 2 has nothing to install. Don't try this in Cloud Shell until Status below says otherwise.
+## What you get
 
-## Quick start (developing/testing right now)
+A running AI agent, in a project only you control, that:
+- Remembers things across conversations and improves its own skills over time.
+- Is reachable securely from anywhere via `gcloud compute ssh` — no open ports on the internet by default.
+- Can be extended with more tools later (like Gmail or Calendar access) — your handoff doc includes ready-to-use snippets for that.
 
-The application code exists and passes its full test suite (`--dry-run` mode, zero real GCP calls), but has never been run against a real GCP project. To try it yourself today, from a clone of this repo:
+Curious what's actually protecting your agent, or how the whole thing fits together under the hood? See [docs/security.md](docs/security.md) and [docs/architecture.md](docs/architecture.md).
 
-```
-uv venv --python 3.11 && source .venv/bin/activate
-uv pip install -e ".[dev]"
-python -m pytest              # 23 tests, all against fakes -- $0 cost
-python -m hermes_anvil --dry-run
-```
+## Something not working?
 
-The last command launches the real TUI, walking through all 12 screens end-to-end, but every GCP/MCP call is faked (see `dryrun/fakes.py`) -- nothing touches real Google Cloud. There is no way yet to point this at a real GCP project (no `gcloud`/MCP tool-name verification has been done -- see Status).
+Check [docs/prerequisites.md](docs/prerequisites.md) first — most snags are a missed prerequisite step (billing not active yet, or a card verification still pending). If you're stuck beyond that, flag a workshop organizer.
 
-## Status
+---
 
-Implemented and tested in `--dry-run` only. Before this can run for real in Cloud Shell, three things need to happen against an actual GCP project (none have been tried yet):
-
-1. **Verify the Compute Engine MCP server's real tool names.** `mcp/compute_server.py` guesses `compute.instances.insert`/`compute.instances.get` from REST API naming conventions — never confirmed against a live `https://compute.googleapis.com/mcp` via `list_tools()`.
-2. **Verify gcloud-mcp actually works as assumed.** Never run `npx @google-cloud/gcloud-mcp` for real — its tool schema and whether its denylist blocks `projects create`/`services enable`/`billing projects link` are unconfirmed.
-3. **Verify Hermes Agent's real CLI surface.** The startup script assumes `hermes gateway` is the right long-running command and `~/.hermes/config.yaml` is the right config path, based on a README read, not an actual install.
-
-Separately, before an attendee could use it: publish to PyPI (or point `bootstrap.sh` at a git ref) and stand up hosting for the `curl` URL. Neither is set up.
-
-## Docs
-
-- [docs/architecture.md](docs/architecture.md) — how the harness works end to end
-- [docs/prerequisites.md](docs/prerequisites.md) — what attendees need before the workshop
-- [docs/security.md](docs/security.md) — the security posture log
+*Maintaining or extending Hermes Anvil itself? See [docs/dev-guide.md](docs/dev-guide.md).*
