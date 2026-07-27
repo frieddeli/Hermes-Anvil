@@ -28,3 +28,16 @@ build/
 *service-account*.json
 *credentials*.json
 application_default_credentials.json
+# pixi -- local-only scratch environment for testing gcloud/gcloud-mcp
+# during development (needs the real gcloud CLI, which this project's
+# own dependencies don't include). Not part of the product -- keep the
+# whole thing, manifest included, out of the repo entirely.
+.pixi/*
+!.pixi/config.toml
+pixi.toml
+pixi.lock
+.gitattributes
+
+# Local Claude Code project config, if one ever gets added -- personal
+# dev tooling, not part of the product.
+.claude/

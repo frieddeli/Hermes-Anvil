@@ -8,6 +8,24 @@ we need:
 Both `gcloud_server.py` and `compute_server.py` build on this rather than
 touching the `mcp` SDK directly, so transport details (session setup,
 tool-call plumbing) live in exactly one place.
+
+Deliberately has NO internal timeout handling. An earlier version wrapped
+these methods in `anyio.fail_after()` around the `AsyncExitStack`-based
+connect logic -- confirmed, by testing against a real running gcloud-mcp
+server (not just reasoned about), to break the connection with "Attempted
+to exit a cancel scope that isn't the current task's current cancel
+scope" EVEN ON THE SUCCESS PATH, not just failures. Bare
+`AsyncExitStack.enter_async_context()` (no cancel-scope-based timeout
+wrapped around it) was verified working end to end: connect, list_tools,
+and close all completed cleanly against a real gcloud-mcp process.
+Timeouts belong at the caller boundary instead (see gcloud_server.py /
+compute_server.py), wrapping a single complete call with plain
+`asyncio.wait_for()` rather than reaching inside this class's
+`AsyncExitStack` sequencing.
+
+Refs: anyio cancellation docs (https://anyio.readthedocs.io/en/stable/cancellation.html,
+doesn't cover this AsyncExitStack interaction -- found by direct testing,
+not documented); `mcp` SDK source read locally in .venv to trace it.
 """
 
 from __future__ import annotations

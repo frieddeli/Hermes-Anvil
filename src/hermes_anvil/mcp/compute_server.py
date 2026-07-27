@@ -16,7 +16,12 @@ pass claimed to find one listing different, snake_case names
 version over the other; call `list_tools()` against the live server
 with real credentials before the first real end-to-end run and use
 whatever it actually returns. See docs/dev-guide.md, gap #1, for the
-full detail. This module is written so that's a one-place fix.
+full detail. This module is written so that's a one-place fix. Same
+caution applies to the request body shape below (`instanceResource`
+etc.) -- gcloud-mcp's `run_gcloud_command` tool turned out to want a
+different input shape than guessed (see gcloud_server.py), so this
+server's tool inputs should be treated as equally unverified until
+tested against the live server.
 """
 
 from __future__ import annotations
@@ -36,6 +41,15 @@ TOOL_GET_INSTANCE = "compute.instances.get"
 # GCP access tokens are typically valid ~60 minutes; refresh with margin
 # to spare rather than waiting for an actual 401.
 TOKEN_REFRESH_INTERVAL_SECONDS = 50 * 60
+
+# Only wraps call_tool, not connect() -- see gcloud_server.py's module
+# docstring for why: wrapping connect_http's AsyncExitStack entry in
+# asyncio.wait_for ties its long-lived resources to a transient task,
+# breaking close() later. Confirmed against gcloud-mcp's stdio transport;
+# not independently re-tested against this server's HTTP transport, but
+# the same AsyncExitStack/McpClient code path is shared, so the same
+# risk applies.
+CALL_TIMEOUT_SECONDS = 60
 
 
 class ComputeMcpServer:
@@ -115,19 +129,35 @@ class ComputeMcpServer:
                 "enableIntegrityMonitoring": spec.shielded_vm,
             },
         }
-        await self._client.call_tool(
-            TOOL_CREATE_INSTANCE,
-            {"project": spec.project, "zone": spec.zone, "instanceResource": body},
-        )
+        try:
+            await asyncio.wait_for(
+                self._client.call_tool(
+                    TOOL_CREATE_INSTANCE,
+                    {"project": spec.project, "zone": spec.zone, "instanceResource": body},
+                ),
+                timeout=CALL_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError as e:
+            raise TimeoutError(
+                f"Timed out after {CALL_TIMEOUT_SECONDS}s creating instance {spec.name}."
+            ) from e
         return InstanceInfo(name=spec.name, status="PROVISIONING", zone=spec.zone)
 
     async def compute_get_instance(
         self, name: str, zone: str, project: str
     ) -> InstanceInfo:
         await self._ensure_fresh_connection()
-        result = await self._client.call_tool(
-            TOOL_GET_INSTANCE, {"project": project, "zone": zone, "instance": name}
-        )
+        try:
+            result = await asyncio.wait_for(
+                self._client.call_tool(
+                    TOOL_GET_INSTANCE, {"project": project, "zone": zone, "instance": name}
+                ),
+                timeout=CALL_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError as e:
+            raise TimeoutError(
+                f"Timed out after {CALL_TIMEOUT_SECONDS}s getting instance status for {name}."
+            ) from e
         status = _extract_status(result)
         return InstanceInfo(name=name, status=status, zone=zone)
 
