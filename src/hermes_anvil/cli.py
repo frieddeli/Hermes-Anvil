@@ -4,7 +4,21 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import sys
+
+# Must be set before Textual's driver starts (it reads this once, at
+# import/startup time via textual.constants). Cloud Shell's web terminal
+# (xterm.js) doesn't fully support the Kitty keyboard protocol that
+# Textual's Linux driver otherwise enables unconditionally on startup by
+# writing a raw "\x1b[>{flags}u" escape sequence -- confirmed by reading
+# textual/drivers/linux_driver.py directly. Real-world symptom, reported
+# and reproduced: the welcome screen renders fine, but Enter does
+# nothing, while the process is still alive (Ctrl+C works normally).
+# Known xterm.js gap, not specific to this app: keys like Enter and
+# Backspace can get dropped/misidentified under that protocol while
+# other keys (letters, arrows, space) keep working.
+os.environ.setdefault("TEXTUAL_DISABLE_KITTY_KEY", "1")
 
 from hermes_anvil.app import HermesAnvilApp, RunContext
 from hermes_anvil.gcp.secrets import RealSecretWriter
