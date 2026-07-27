@@ -72,14 +72,22 @@ unset API_KEY
 OPENSHELL_MODE="audit"
 OPENSHELL_AVAILABLE=0
 
-# TODO before the workshop: pin an exact, verified OpenShell install
-# command/version here. See https://docs.nvidia.com/openshell/about/installation
-# for the current official Debian/Ubuntu package install instructions --
-# intentionally not hardcoding an unverified install URL in this script.
+# Official installer (verified reachable at authoring time -- confirm
+# still current before the workshop, installers can move):
+# https://docs.nvidia.com/openshell/about/installation
+# Detects the OS and installs the openshell CLI + openshell-gateway
+# daemon + systemd user service via the native package manager. Non-fatal
+# if it fails -- Hermes must still come up even if sandboxing doesn't.
+if curl -LsSf https://raw.githubusercontent.com/NVIDIA/OpenShell/main/install.sh | sh; then
+  :
+else
+  echo "WARNING: OpenShell install failed -- continuing without sandboxing."
+fi
+
 if command -v openshell &>/dev/null; then
   OPENSHELL_AVAILABLE=1
 else
-  echo "NOTE: openshell not found on this image -- see TODO above. Hermes will run unsandboxed until this is filled in."
+  echo "NOTE: openshell not found on this image after install attempt. Hermes will run unsandboxed."
 fi
 
 mkdir -p /etc/openshell

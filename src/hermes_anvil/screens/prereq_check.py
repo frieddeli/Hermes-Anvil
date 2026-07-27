@@ -18,8 +18,13 @@ class PreflightScreen(Screen):
 
     async def on_mount(self) -> None:
         ctx = self.app.ctx
-        result = await run_preflight(ctx.router)
         status = self.query_one("#status", Static)
+
+        try:
+            result = await run_preflight(ctx.router)
+        except Exception as e:
+            status.update(f"Error checking your GCP account: {e}\n\nPress q to quit.")
+            return
 
         if not result.authenticated:
             status.update(

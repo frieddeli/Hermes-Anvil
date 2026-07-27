@@ -88,3 +88,25 @@ async def test_ensure_project_resumes_against_existing_project(tmp_path):
     # Only one "projects create" call should have happened.
     create_calls = [c for c in router._call_log if c.startswith("projects create")]
     assert len(create_calls) == 1
+
+
+async def test_ensure_project_relinks_billing_if_interrupted_before_link(tmp_path):
+    """A crash between project creation and the billing link would leave
+    state.project set but "billing_linked" absent from completed_steps.
+    A resumed run must still perform the billing link, not silently skip
+    it just because the project already exists."""
+    router = FakeGcpToolRouter(latency=0)
+    state = RunState.load_or_create("mid-crash", "Mid Crash", tmp_path)
+
+    # Simulate exactly that interrupted state by hand, rather than via
+    # ensure_project, since ensure_project always links billing itself.
+    state.project = naming.project_id(state.slug)
+    router._projects.add(state.project)  # so the next "projects describe" succeeds
+    state.mark_done("project_created")
+    assert not state.is_done("billing_linked")
+
+    result = await bootstrap.ensure_project(router, state, billing_account=BILLING_ACCOUNT)
+
+    assert result == state.project
+    assert state.is_done("billing_linked")
+    assert state.project in router._billing_linked

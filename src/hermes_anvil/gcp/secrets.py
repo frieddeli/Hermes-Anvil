@@ -22,22 +22,33 @@ class SecretWriter(Protocol):
 
 class RealSecretWriter:
     def write_api_key(self, state: RunState, api_key: str) -> str:
+        from google.api_core.exceptions import AlreadyExists
         from google.cloud import secretmanager
 
         secret_id = naming.secret_name(state.slug)
         client = secretmanager.SecretManagerServiceClient()
         parent = f"projects/{state.project}"
+        secret_resource_name = f"{parent}/secrets/{secret_id}"
 
-        secret = client.create_secret(
-            request={
-                "parent": parent,
-                "secret_id": secret_id,
-                "secret": {"replication": {"automatic": {}}},
-            }
-        )
+        try:
+            secret = client.create_secret(
+                request={
+                    "parent": parent,
+                    "secret_id": secret_id,
+                    "secret": {"replication": {"automatic": {}}},
+                }
+            )
+            secret_resource_name = secret.name
+        except AlreadyExists:
+            # Resumed run: create_secret succeeded on a prior attempt but
+            # add_secret_version below never got the chance to run (or
+            # mark_done never ran) before a crash -- retry from here
+            # instead of failing on a name collision.
+            pass
+
         client.add_secret_version(
             request={
-                "parent": secret.name,
+                "parent": secret_resource_name,
                 "payload": {"data": api_key.encode("utf-8")},
             }
         )

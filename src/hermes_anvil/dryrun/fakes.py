@@ -68,8 +68,9 @@ class FakeGcpToolRouter:
             # Mirrors --format=value(ACCOUNT_ID): one bare value, no header.
             return GcloudResult(0, "012345-ABCDEF")
 
-        if args[:2] == ["billing", "projects"] and "link" in args:
-            project = args[2] if len(args) > 2 else "unknown"
+        if args[:3] == ["billing", "projects", "link"]:
+            # ["billing", "projects", "link", <project>, "--billing-account=..."]
+            project = args[3] if len(args) > 3 else "unknown"
             self._billing_linked.add(project)
             return GcloudResult(0, f"Linked billing account to [{project}].")
 

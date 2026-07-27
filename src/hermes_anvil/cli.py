@@ -72,12 +72,22 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
 
-    try:
-        HermesAnvilApp(ctx).run()
-    finally:
-        asyncio.run(router.close())
-
+    asyncio.run(_run_app(ctx))
     return 0
+
+
+async def _run_app(ctx: RunContext) -> None:
+    # The router's MCP clients (gcloud-mcp's stdio subprocess, the
+    # Compute Engine MCP's HTTP session) are anyio-based and must be
+    # opened and closed within the SAME event loop -- Textual's own
+    # App.run() manages its own loop internally and closes it on exit,
+    # so calling it here (app.run_async(), inside our own asyncio.run)
+    # rather than the sync app.run() is what keeps router.close() in the
+    # loop the connections were actually opened in.
+    try:
+        await HermesAnvilApp(ctx).run_async()
+    finally:
+        await ctx.router.close()
 
 
 if __name__ == "__main__":

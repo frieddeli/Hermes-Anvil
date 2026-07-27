@@ -4,8 +4,9 @@
 Only reachable once `compute.googleapis.com` is enabled on the project --
 gcloud_server.py handles everything before that point. Auth is OAuth2/ADC;
 the bearer token needs an hourly refresh, which this class handles by
-re-fetching a token from `gcloud auth print-access-token` before each call
-rather than caching indefinitely.
+tracking connection age and transparently reconnecting with a fresh
+token (via `gcloud auth print-access-token`) once it's past
+TOKEN_REFRESH_INTERVAL_SECONDS, rather than caching the token forever.
 
 NOTE: the exact tool names/schemas exposed by this server aren't pinned
 down in the design docs (Google's public docs describe its *capabilities*
@@ -18,6 +19,7 @@ This module is written so that's a one-place fix.
 from __future__ import annotations
 
 import asyncio
+import time
 
 from .client import McpClient
 from .tool_router import InstanceInfo, InstanceSpec
@@ -28,11 +30,16 @@ COMPUTE_MCP_URL = "https://compute.googleapis.com/mcp"
 TOOL_CREATE_INSTANCE = "compute.instances.insert"
 TOOL_GET_INSTANCE = "compute.instances.get"
 
+# GCP access tokens are typically valid ~60 minutes; refresh with margin
+# to spare rather than waiting for an actual 401.
+TOKEN_REFRESH_INTERVAL_SECONDS = 50 * 60
+
 
 class ComputeMcpServer:
     def __init__(self) -> None:
         self._client = McpClient()
         self._connected = False
+        self._connected_at: float = 0.0
 
     async def _access_token(self) -> str:
         proc = await asyncio.create_subprocess_exec(
@@ -55,6 +62,7 @@ class ComputeMcpServer:
             COMPUTE_MCP_URL, headers={"Authorization": f"Bearer {token}"}
         )
         self._connected = True
+        self._connected_at = time.monotonic()
 
     async def _reconnect(self) -> None:
         """Refresh the bearer token and reopen the session (hourly expiry)."""
@@ -62,8 +70,15 @@ class ComputeMcpServer:
         self._connected = False
         await self.connect()
 
+    async def _ensure_fresh_connection(self) -> None:
+        if not self._connected:
+            await self.connect()
+            return
+        if time.monotonic() - self._connected_at > TOKEN_REFRESH_INTERVAL_SECONDS:
+            await self._reconnect()
+
     async def compute_create_instance(self, spec: InstanceSpec) -> InstanceInfo:
-        await self.connect()
+        await self._ensure_fresh_connection()
         body = {
             "name": spec.name,
             "machineType": f"zones/{spec.zone}/machineTypes/{spec.machine_type}",
@@ -106,7 +121,7 @@ class ComputeMcpServer:
     async def compute_get_instance(
         self, name: str, zone: str, project: str
     ) -> InstanceInfo:
-        await self.connect()
+        await self._ensure_fresh_connection()
         result = await self._client.call_tool(
             TOOL_GET_INSTANCE, {"project": project, "zone": zone, "instance": name}
         )

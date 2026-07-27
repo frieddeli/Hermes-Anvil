@@ -26,10 +26,18 @@ class SecretSetupScreen(Screen):
             return
 
         ctx = self.app.ctx
-        ctx.secret_writer.write_api_key(ctx.state, value)
+        error: Exception | None = None
+        try:
+            ctx.secret_writer.write_api_key(ctx.state, value)
+        except Exception as e:
+            error = e
+        finally:
+            event.input.value = ""
+            value = ""
 
-        event.input.value = ""
-        value = ""
+        if error is not None:
+            status.update(f"Error storing API key: {error}")
+            return
 
         from hermes_anvil.screens.vm_provision import VmProvisionScreen
 

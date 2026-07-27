@@ -43,7 +43,11 @@ class NetworkSecurityScreen(Screen):
         ctx = self.app.ctx
         status = self.query_one("#status", Static)
         status.update("Configuring IAP firewall rules...")
-        await ensure_iap_firewall_rule(ctx.router, ctx.state)
+        try:
+            await ensure_iap_firewall_rule(ctx.router, ctx.state)
+        except Exception as e:
+            status.update(f"Error configuring firewall rules: {e}")
+            return
         self._proceed()
 
     @on(Button.Pressed, "#public")
@@ -62,10 +66,17 @@ class NetworkSecurityScreen(Screen):
 
         ctx = self.app.ctx
         status.update("Configuring IAP firewall rules...")
-        await ensure_iap_firewall_rule(ctx.router, ctx.state)
+        try:
+            await ensure_iap_firewall_rule(ctx.router, ctx.state)
+        except Exception as e:
+            status.update(f"Error configuring firewall rules: {e}")
+            return
 
         status.update("Detecting your public IP...")
-        ip = detect_public_ip()
+        try:
+            ip = detect_public_ip()
+        except Exception:
+            ip = None
         if ip is None:
             status.update("Could not detect your public IP. Please enter it manually.")
             manual_ip = self.query_one("#manual-ip", Input)
@@ -86,7 +97,11 @@ class NetworkSecurityScreen(Screen):
         ctx = self.app.ctx
         status = self.query_one("#status", Static)
         status.update(f"Configuring public-IP firewall rules for {ip}...")
-        await ensure_public_ip_firewall_rule(ctx.router, ctx.state, ip)
+        try:
+            await ensure_public_ip_firewall_rule(ctx.router, ctx.state, ip)
+        except Exception as e:
+            status.update(f"Error configuring public-IP firewall rule: {e}")
+            return
         ctx.state.allow_public_ip = True
         ctx.state.save()
         self._proceed()

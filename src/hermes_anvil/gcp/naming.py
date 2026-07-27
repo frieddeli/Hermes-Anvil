@@ -29,14 +29,27 @@ def random_suffix(length: int = 4) -> str:
     return "".join(random.choice(alphabet) for _ in range(length))
 
 
+PROJECT_ID_PREFIX = "hermes-anvil-"
+
+
 def project_id(slug: str, suffix: str | None = None) -> str:
     """GCP project IDs: 6-30 chars, lowercase letters/digits/hyphens,
     must start with a letter, globally unique across all of GCP -- hence
     the random suffix, regenerated on each retry if there's a collision.
+
+    Truncate the SLUG to make room, not the combined string -- slicing
+    the whole "prefix-slug-suffix" string to 30 chars at the end would
+    silently chop off (or entirely drop) the suffix for any slug longer
+    than ~12 chars (SLUG_MAX_LEN allows up to 20), which both produces
+    an ID that isn't actually unique-looking and, worse, makes
+    bootstrap.ensure_project's collision-retry loop generate the exact
+    same truncated ID on every attempt since the new random suffix never
+    survives the slice.
     """
     suffix = suffix or random_suffix()
-    pid = f"hermes-anvil-{slug}-{suffix}"
-    return pid[:30].rstrip("-")
+    max_slug_len = 30 - len(PROJECT_ID_PREFIX) - len(suffix) - 1  # -1 for the "-" before suffix
+    trimmed_slug = (slug[:max_slug_len].rstrip("-") or "agent") if max_slug_len > 0 else "a"
+    return f"{PROJECT_ID_PREFIX}{trimmed_slug}-{suffix}"
 
 
 def instance_name(slug: str) -> str:

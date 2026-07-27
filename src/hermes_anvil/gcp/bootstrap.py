@@ -25,6 +25,14 @@ async def ensure_project(
     if state.project:
         describe = await router.run_gcloud(["projects", "describe", state.project])
         if describe.ok:
+            # The project itself surviving a crash doesn't mean billing
+            # got linked -- a crash between mark_done("project_created")
+            # and the link call below would otherwise be resumed as if
+            # billing were already handled, and enable_apis would then
+            # fail on an unlinked project with a confusing GCP error
+            # instead of a clear one.
+            if not state.is_done("billing_linked"):
+                await _link_billing(router, state, billing_account)
             return state.project
         # Referenced project no longer exists -- fall through and create anew.
 
@@ -45,15 +53,19 @@ async def ensure_project(
     state.project = project
     state.mark_done("project_created")
 
+    await _link_billing(router, state, billing_account)
+    return project
+
+
+async def _link_billing(router: GcpToolRouter, state: RunState, billing_account: str) -> None:
     link = await router.run_gcloud(
-        ["billing", "projects", "link", project, f"--billing-account={billing_account}"]
+        ["billing", "projects", "link", state.project, f"--billing-account={billing_account}"]
     )
     if not link.ok:
         raise RuntimeError(f"Failed to link billing account: {link.stderr}")
 
     state.billing_account = billing_account
     state.mark_done("billing_linked")
-    return project
 
 
 async def enable_apis(router: GcpToolRouter, state: RunState) -> None:

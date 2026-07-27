@@ -50,6 +50,27 @@ def test_project_id():
     assert long_pid.startswith("hermes-anvil-")
     assert len(long_pid) <= 30
     assert not long_pid.endswith("-")
+    # The suffix must survive truncation, not just the prefix -- a bug
+    # here previously let a long slug silently eat the whole 30-char
+    # budget, dropping the suffix entirely and making every collision
+    # retry in bootstrap.ensure_project produce an identical ID.
+    assert long_pid.endswith("-bbbbbbbbbb")
+
+
+def test_project_id_suffix_always_survives_realistic_long_slugs():
+    # SLUG_MAX_LEN allows slugs up to 20 chars (e.g. "the-great-destroyer",
+    # a perfectly plausible attendee-chosen agent name) -- with the
+    # default 4-char suffix, the suffix must never be truncated away.
+    long_slug = "the-great-destroyer"  # 19 chars
+    assert len(long_slug) > 12  # more than the old, unreserved budget
+
+    id_a = project_id(long_slug, suffix="aaaa")
+    id_b = project_id(long_slug, suffix="bbbb")
+
+    assert id_a.endswith("-aaaa")
+    assert id_b.endswith("-bbbb")
+    assert id_a != id_b  # a new suffix must actually change the ID
+    assert len(id_a) <= 30 and len(id_b) <= 30
 
 
 def test_instance_name():

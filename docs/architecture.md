@@ -1,4 +1,5 @@
-# Architecture
+ing 1 shell command…
+  ⎿  $ w# Architecture
 
 ## Why it's built this way
 
@@ -10,22 +11,26 @@ GCP account creation and billing/free-trial signup are interactive, human, brows
 
 ## End-to-end flow
 
-```
-Cloud Shell (attendee's own identity)
-  └─ curl -fsSL https://get.hermesanvil.dev | bash   (bootstrap.sh)
-       └─ installs uv if missing, runs `uvx hermes-anvil`
-            └─ Textual TUI (hermes_anvil.app)
-                 ├─ gcloud-mcp (local, stdio, npx subprocess)
-                 │    → project create/select, billing link, API enable,
-                 │      service account + IAM, firewall rules
-                 ├─ Compute Engine remote MCP server (https://compute.googleapis.com/mcp)
-                 │    → VM create/get/wait  (only usable after API enable step)
-                 └─ Secret Manager Python SDK — DIRECT call, deliberately bypasses MCP
-                      → writes attendee's model-provider API key
-       → VM boots, startup script installs Hermes, pulls key from Secret Manager
-         via the VM's own least-privilege service account, systemd unit keeps it alive
-       → TUI shows the "hatch" reveal + writes a handoff doc to Cloud Shell's
-         persistent home directory ($HOME survives across Cloud Shell sessions)
+```mermaid
+flowchart TD
+    A["Cloud Shell<br/>(attendee's own identity)"] -->|"curl bootstrap.sh"| B["installs uv if missing"]
+    B --> C["uvx hermes-anvil"]
+    C --> D["Textual TUI<br/>(hermes_anvil.app)"]
+
+    D --> E["gcloud-mcp<br/>(local stdio subprocess)"]
+    D --> F["Compute Engine remote MCP<br/>compute.googleapis.com/mcp"]
+    D --> G["Secret Manager SDK<br/>(direct call, bypasses MCP)"]
+
+    E --> E1["project create/select, billing link,<br/>API enable, service account, firewall rules"]
+    F --> F1["VM create / get / wait<br/>(only reachable after API enable)"]
+    G --> G1["writes attendee's<br/>model-provider API key"]
+
+    E1 --> H["VM boots"]
+    F1 --> H
+    G1 --> H
+
+    H --> I["startup script installs Hermes,<br/>pulls key from Secret Manager via the VM's<br/>own least-privilege service account,<br/>systemd unit keeps it alive"]
+    I --> J["hatch reveal +<br/>handoff doc written to Cloud Shell's<br/>persistent $HOME"]
 ```
 
 ## Why two MCP servers, routed through one client
@@ -84,6 +89,23 @@ hermes-anvil/
 ```
 
 ## Attendee flow (screens map 1:1 to `screens/`)
+
+```mermaid
+flowchart TD
+    S1["1. Welcome"] --> S2["2. Preflight check"]
+    S2 -->|"no billing account"| X["Halt — see prerequisites.md"]
+    S2 -->|"ok"| S3["3. Name your agent"]
+    S3 --> S4["4. Project setup"]
+    S4 --> S5["5. API enablement"]
+    S5 --> S6["6. Service account"]
+    S6 --> S7["7. Network & security"]
+    S7 -->|"private (default)"| S8["8. Secret setup"]
+    S7 -->|"public IP (opt-in + typed confirm)"| S8
+    S8 --> S9["9. VM provisioning"]
+    S9 --> S10["10. Install wait"]
+    S10 --> S11["11. Hatch reveal"]
+    S11 --> S12["12. Handoff summary"]
+```
 
 1. **Welcome** — theme intro, "press Enter to begin hatching."
 2. **Preflight** — checks `gcloud auth list`, Cloud Shell signal (`DEVSHELL_PROJECT_ID`), and `gcloud billing accounts list` (via gcloud-mcp). No billing account → halt with a message pointing at the prerequisites doc. This is the harness enforcing the scope boundary above.
