@@ -48,11 +48,22 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="SLUG",
         help="Print the command to tear down a previous run's resources.",
     )
+    parser.add_argument(
+        "--version",
+        action="store_true",
+        help="Print the exact build (version + resolved git commit, if installed from git) and exit.",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+
+    if args.version:
+        from hermes_anvil.version_info import build_label
+
+        print(build_label())
+        return 0
 
     if args.teardown:
         print(

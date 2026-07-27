@@ -41,3 +41,8 @@ pixi.lock
 # Local Claude Code project config, if one ever gets added -- personal
 # dev tooling, not part of the product.
 .claude/
+
+# Playwright MCP debugging artifacts (screenshots/snapshots/logs from
+# ad hoc local browser-automation testing) -- scratch output, not part
+# of the product.
+.playwright-mcp/
