@@ -8,12 +8,15 @@ tracking connection age and transparently reconnecting with a fresh
 token (via `gcloud auth print-access-token`) once it's past
 TOKEN_REFRESH_INTERVAL_SECONDS, rather than caching the token forever.
 
-NOTE: the exact tool names/schemas exposed by this server aren't pinned
-down in the design docs (Google's public docs describe its *capabilities*
--- instances, templates, disks, snapshots -- not a full tool reference).
-Before the first real end-to-end run, call `list_tools()` against the
-live server and confirm the names below match; update them here if not.
-This module is written so that's a one-place fix.
+NOTE: the exact tool names below are unconfirmed, and two independent
+research passes gave CONFLICTING answers -- a direct fetch of Google's
+docs page found no explicit tool-name list at all, while a separate
+pass claimed to find one listing different, snake_case names
+(create_instance, get_instance_basic_info, etc). Do not trust either
+version over the other; call `list_tools()` against the live server
+with real credentials before the first real end-to-end run and use
+whatever it actually returns. See docs/dev-guide.md, gap #1, for the
+full detail. This module is written so that's a one-place fix.
 """
 
 from __future__ import annotations

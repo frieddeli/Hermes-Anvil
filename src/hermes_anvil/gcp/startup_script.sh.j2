@@ -27,22 +27,56 @@ API_KEY=$(gcloud secrets versions access latest --secret="${SECRET_NAME}" --proj
 # Installer sets up Python 3.11+/Node/uv/ripgrep/ffmpeg itself.
 sudo -u hermes bash -c 'curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash'
 
-# --- 4. Write Hermes config ---
+# The installer appends hermes to PATH via shell rc files (its own
+# quickstart docs say to `source ~/.bashrc` afterward) rather than
+# making it available to non-interactive/non-login processes. systemd
+# does not source .bashrc, so resolve the real binary path explicitly
+# now and use that full path below instead of a bare `hermes` -- avoids
+# a silent "command not found" the first time the service starts.
+HERMES_BIN=$(sudo -u hermes bash -lc 'command -v hermes' || true)
+if [ -z "${HERMES_BIN}" ]; then
+  echo "ERROR: hermes binary not found on PATH after install. Aborting." >&2
+  exit 1
+fi
+echo "Resolved hermes binary: ${HERMES_BIN}"
+
+# --- 4. Configure Hermes ---
+# Verified against Hermes's own docs (hermes-agent.nousresearch.com/docs):
+# `hermes config set <KEY> <VALUE>` is the real mechanism for API keys --
+# it routes automatically to ~/.hermes/.env, not into config.yaml. This
+# assumes OpenRouter (this project's recommended default provider, see
+# docs/prerequisites.md) -- OPENROUTER_API_KEY is confirmed correct for
+# that provider. If the attendee used Nous Portal or OpenAI instead, this
+# key name is wrong; the harness doesn't currently ask which provider was
+# used, so it can't select the right key name for those cases. Known gap,
+# see docs/dev-guide.md.
+sudo -u hermes bash -lc "'${HERMES_BIN}' config set OPENROUTER_API_KEY '${API_KEY}'"
+unset API_KEY
+
 sudo -u hermes mkdir -p /home/hermes/.hermes
 cat <<EOF > /home/hermes/.hermes/config.yaml
 agent_name: "${AGENT_NAME}"
-model_provider:
-  api_key: "${API_KEY}"
 
 # --- Optional: Google Workspace MCP (Gmail / Calendar / Drive / Chat) ---
-# Uncomment to give your agent access to your own Google Workspace
-# services via Google's official Workspace MCP server (preview). See
-# https://docs.cloud.google.com/mcp/supported-products for the current
-# server URL and auth setup -- this is not infra control (unlike the
+# Uncomment the products you want to give your agent access to, via
+# Google's official per-product Workspace MCP servers (there is no
+# single unified "Workspace MCP" endpoint -- each product has its own
+# dedicated server; URLs verified live, see
+# https://developers.google.com/workspace/guides/configure-mcp-servers
+# for the full list and auth setup). Not infra control (unlike the
 # self-management wiring below), so it's safe to enable if you want it.
 # mcp_servers:
-#   google-workspace:
-#     url: "https://workspace.googleapis.com/mcp"
+#   gmail:
+#     url: "https://gmailmcp.googleapis.com/mcp/v1"
+#     auth: oauth
+#   calendar:
+#     url: "https://calendarmcp.googleapis.com/mcp/v1"
+#     auth: oauth
+#   drive:
+#     url: "https://drivemcp.googleapis.com/mcp/v1"
+#     auth: oauth
+#   chat:
+#     url: "https://chatmcp.googleapis.com/mcp/v1"
 #     auth: oauth
 
 # --- Optional, v2, NOT recommended on day one (docs/security.md) ---
@@ -58,17 +92,40 @@ model_provider:
 EOF
 chown hermes:hermes /home/hermes/.hermes/config.yaml
 chmod 600 /home/hermes/.hermes/config.yaml
-unset API_KEY
 
-# --- 5. NVIDIA OpenShell sandbox (docs/security.md, measure 5) ---
-# Wraps Hermes's execution: Landlock LSM filesystem restriction + seccomp
-# syscall filtering + this declarative policy. Runs in AUDIT mode by
-# default -- observe what Hermes's tools actually touch during
-# pre-release testing, then flip OPENSHELL_MODE to "enforce" (hard_requirement
-# Landlock) once a working policy has been validated against a real run.
-# Do NOT ship "enforce" without a full rehearsal first -- an over-strict
-# policy can silently break a Hermes tool mid-demo. See the known
-# best_effort-silently-no-ops issue: github.com/NVIDIA/OpenShell/issues/803
+# --- 5. Block the agent from reaching the GCP metadata server ---
+# (docs/security.md, measure 6). Implemented as a plain iptables rule
+# scoped to the `hermes` user's UID, not via OpenShell's network policy
+# layer -- see the OpenShell section below for why. This works
+# regardless of whether OpenShell installs successfully or what mode
+# it's running in, and can be enabled unconditionally rather than
+# gated behind an audit/enforce toggle.
+HERMES_UID=$(id -u hermes)
+iptables -A OUTPUT -d 169.254.169.254 -m owner --uid-owner "${HERMES_UID}" -j DROP
+echo "Blocked hermes user (uid ${HERMES_UID}) from reaching the metadata server."
+
+# --- 6. NVIDIA OpenShell sandbox (docs/security.md, measure 5) ---
+# Wraps Hermes's execution: Landlock LSM filesystem restriction + a
+# scoped process identity. Runs in AUDIT mode by default -- observe
+# what Hermes's tools actually touch during pre-release testing, then
+# flip OPENSHELL_MODE to "enforce" once a working policy has been
+# validated against a real run. Do NOT ship "enforce" without a full
+# rehearsal first -- an over-strict policy can silently break a Hermes
+# tool mid-demo.
+#
+# NOTE on scope: this policy intentionally covers filesystem and
+# process identity only, NOT network. OpenShell's real network policy
+# model (network_policies: a named block per endpoint+binary, deny by
+# default for anything unmatched -- verified against
+# https://docs.nvidia.com/openshell/sandboxes/policies) is an allowlist
+# model that doesn't fit this project's permissive-by-default network
+# stance (docs/security.md's "guiding principle": Hermes needs to reach
+# arbitrary MCP servers/APIs the user adds later, which can't be
+# enumerated in advance). Network-layer control instead comes from the
+# VPC egress firewall (measure 4, permissive-by-default with a targeted
+# denylist) plus the iptables rule above for the one specific thing
+# worth always blocking. Revisit adding network_policies here only if a
+# real run shows OpenShell supports a genuine default-allow mode for it.
 OPENSHELL_MODE="audit"
 OPENSHELL_AVAILABLE=0
 
@@ -92,39 +149,29 @@ fi
 
 mkdir -p /etc/openshell
 cat <<'POLICY' > /etc/openshell/hermes-policy.yaml
-# Starter policy. Verify field names/schema against the installed
-# OpenShell version's own docs before relying on this in production --
-# not independently confirmed against a live install at authoring time.
+# Schema verified against https://docs.nvidia.com/openshell/sandboxes/policies
+# at authoring time -- confirm still current before relying on this,
+# field names could still drift with newer OpenShell releases.
 version: 1
+filesystem_policy:
+  read_write:
+    - /home/hermes
+  read_only:
+    - /usr
+    - /lib
+    - /etc
 landlock:
-  mode: best_effort   # switch to hard_requirement once tuned, see above
-filesystem:
-  allow:
-    - path: /home/hermes
-      access: read-write
-  deny:
-    - path: /home/hermes/.ssh
-      access: read-write
-    - path: /etc/shadow
-      access: read-write
-network:
-  # Permissive by default -- Hermes's core value is connecting to
-  # arbitrary MCP servers/APIs, so this does NOT allowlist destinations.
-  # See docs/security.md's "guiding principle" section.
-  default: allow
-  deny:
-    # Closes the GCP metadata-server credential-theft path (measure 6):
-    # no legitimate MCP server or API needs this address, so blocking it
-    # costs nothing functionally. Only enforced once OPENSHELL_MODE is
-    # "enforce" -- audit mode observes but does not block.
-    - host: 169.254.169.254
+  compatibility: best_effort   # switch to hard_requirement once tuned, see above
+process:
+  run_as_user: hermes
+  run_as_group: hermes
 POLICY
 
-# --- 6. systemd unit ---
+# --- 7. systemd unit ---
 if [ "${OPENSHELL_AVAILABLE}" = "1" ]; then
-  EXEC_START="/usr/bin/env openshell run --policy=/etc/openshell/hermes-policy.yaml --mode=${OPENSHELL_MODE} -- hermes gateway"
+  EXEC_START="/usr/bin/env openshell run --policy=/etc/openshell/hermes-policy.yaml --mode=${OPENSHELL_MODE} -- ${HERMES_BIN} gateway"
 else
-  EXEC_START="/usr/bin/env hermes gateway"
+  EXEC_START="${HERMES_BIN} gateway"
 fi
 
 cat <<EOF > /etc/systemd/system/hermes-agent.service
