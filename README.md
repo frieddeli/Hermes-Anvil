@@ -40,6 +40,12 @@ Curious what's actually protecting your agent, or how the whole thing fits toget
 
 Check [docs/prerequisites.md](docs/prerequisites.md) first — most snags are a missed prerequisite step (billing not active yet, or a card verification still pending). If you're stuck beyond that, flag a workshop organizer.
 
+## ⚠️ What this costs after your free trial ends
+
+Your agent's VM is **not** covered by GCP's perpetual Always Free tier — that only covers a smaller `e2-micro` instance in specific US regions, and this setup uses a bigger one. Once your $300 credit runs out or 90 days pass (whichever comes first), the VM will start billing to the card on your account — typically around **$10–15/month**. Everything else (Secret Manager, IAM, the secure SSH tunnel) stays free or near-free regardless.
+
+To keep running for free indefinitely instead, resize your VM down to an `e2-micro` instance in `us-west1`, `us-central1`, or `us-east1` before your credit runs out — this isn't done for you automatically. Either way, **set a budget alert in the GCP Console** so you get a heads-up before anything bills you. (Your handoff doc repeats this note so it's there when you actually need it.)
+
 ---
 
 *Maintaining or extending Hermes Anvil itself? See [docs/dev-guide.md](docs/dev-guide.md).*
